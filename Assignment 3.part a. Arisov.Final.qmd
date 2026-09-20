@@ -1,0 +1,217 @@
+---
+title: "Assignment 3. part a. Arisov DATA 607"
+author: "Maxim Arisov"
+format: html
+date: 09/20/26
+code-fold: true
+toc: true
+editor: visual
+---
+
+## **Global Baseline Estimates**
+
+## **Approach**
+
+For this assignment, I will use the movie ratings data XLSX collected from the class survey to create a Global Baseline Estimate recommendation system in R studio.
+
+First, I will organize the movie ratings and check for missing ratings.
+
+Second, I will calculate the average rating for each user and compare it with the overall average rating.
+
+Third, I will calculate the average rating for each movie and compare it with the overall average rating.
+
+After above steps, I will use the Global Baseline Estimate formula to predict a missing movie rating. The prediction will use the overall average, the user's rating difference from the average, and the movie's rating difference from the average.
+
+Lastly, I will use the predicted rating to create a movie recommendation and explain the results.
+
+GitHub link:
+
+<https://github.com/Maximus2485/Assignment-3.-part-a.-Global-Baseline-Estimates.-/blob/main/MovieRatings.xlsx>
+
+## Data Source
+
+The 3 datasets were provided by professor for this assignment. I uploaded the dataset to my GitHub repository so I could access and use the data in RStudio.
+
+global baseline
+
+<https://raw.githubusercontent.com/Maximus2485/Assignment-3.-part-a.-Global-Baseline-Estimates.-/refs/heads/main/MovieRatings.global%20baseline.csv>
+
+mean centered
+
+<https://raw.githubusercontent.com/Maximus2485/Assignment-3.-part-a.-Global-Baseline-Estimates.-/refs/heads/main/MovieRatings.mean%20centered.csv>
+
+problem statement
+
+<https://raw.githubusercontent.com/Maximus2485/Assignment-3.-part-a.-Global-Baseline-Estimates.-/refs/heads/main/MovieRatings.problem%20statement.csv>
+
+## Code Base
+
+**Lets load the three datasets**
+
+```{r}
+# Problem statement data
+problem <- read.csv(
+  "https://raw.githubusercontent.com/Maximus2485/Assignment-3.-part-a.-Global-Baseline-Estimates.-/refs/heads/main/MovieRatings.problem%20statement.csv",
+  header = FALSE
+)
+
+# Mean-centered data
+mean_centered <- read.csv(
+  "https://raw.githubusercontent.com/Maximus2485/Assignment-3.-part-a.-Global-Baseline-Estimates.-/refs/heads/main/MovieRatings.mean%20centered.csv"
+)
+
+# Global baseline data
+baseline <- read.csv(
+  "https://raw.githubusercontent.com/Maximus2485/Assignment-3.-part-a.-Global-Baseline-Estimates.-/refs/heads/main/MovieRatings.global%20baseline.csv"
+)
+
+head(problem)
+head(mean_centered)
+head(baseline)
+```
+
+**Processing of data before analysis**
+
+```{r}
+#Because the problem file has no column names, lets give them names.
+names(problem) <- c(
+  "Critic",
+  "CaptainAmerica",
+  "Deadpool",
+  "Frozen",
+  "JungleBook",
+  "PitchPerfect2",
+  "StarWarsForce"
+)
+
+problem
+
+#Param's PitchPerfect2 value is "?" in the professor's data. Lets change that to a missing value.
+problem[problem == "?"] <- NA
+
+#Lets convert the movie columns to numbers
+problem[2:7] <- lapply(problem[2:7], as.numeric)
+```
+
+**Lets calculate the overall mean**
+
+```{r}
+overall_mean <- mean(
+  as.matrix(problem[2:7]),
+  na.rm = TRUE
+)
+
+overall_mean
+```
+
+\# I got overall_mean 3.93, which matches professor's Global Baseline Estimates.
+
+**Calculate each movie average**
+
+```{r}
+movie_avg <- colMeans(
+  problem[2:7],
+  na.rm = TRUE
+)
+
+movie_avg
+```
+
+I got move_ave , which match professor's value in Global Baseline Estimates.
+
+**Calculate how each movie is from the overall mean:**
+
+```{r}
+movie_difference <- movie_avg - overall_mean
+
+movie_difference
+```
+
+I got movie_difference , which match professor's value movie avg - mean movie in Global Baseline Estimates.
+
+**Let calculate each user's average**
+
+```{r}
+user_avg <- rowMeans(
+  problem[2:7],
+  na.rm = TRUE
+)
+
+user_avg
+```
+
+I got user_avg, which match professor's value user avg in Global Baseline Estimates.
+
+**Calculate each user's difference form the overall mean**
+
+```{r}
+user_difference <- user_avg - overall_mean
+
+#Add these values to the dataset
+problem$user_avg <- user_avg
+problem$user_difference <- user_difference
+
+problem
+```
+
+**Lets predict Param's rating**
+
+```{r}
+param_difference <- problem$user_difference[
+  problem$Critic == "Param"
+]
+
+pitch_difference <- movie_difference["PitchPerfect2"]
+
+predicted_rating <- overall_mean +
+                    param_difference +
+                    pitch_difference
+
+predicted_rating
+```
+
+I got predicted_rating approximately 2.28, which reproduces the professor's calculation.
+
+The overall average movie rating is about 3.93. Param's ratings are about 0.43 below the overall average, and Pitch Perfect 2 is about 1.22 below the overall average. Using the Global Baseline Estimate, Param's predicted rating for Pitch Perfect 2 is about 2.28. This means the model estimates that Param would give Pitch Perfect 2 a rating of about 2.3.
+
+**Lets make a movie recommendation**
+
+```{r}
+#I calculated predicted ratings for the movies that each user did not rate. For each user, I selected the movie with the highest predicted rating as the recommendation. A higher predicted rating means the Global Baseline Estimate expects the user to give that movie a higher rating.
+
+library(dplyr)
+library(tidyr)
+
+recommendations <- problem %>%
+  pivot_longer(
+    CaptainAmerica:StarWarsForce,
+    names_to = "Movie",
+    values_to = "Rating"
+  ) %>%
+  filter(is.na(Rating)) %>%
+  mutate(
+    Predicted_Rating =
+      overall_mean +
+      user_difference +
+      movie_difference[Movie]
+  ) %>%
+  group_by(Critic) %>%
+  slice_max(Predicted_Rating, n = 1) %>%
+  select(Critic, Movie, Predicted_Rating)
+
+recommendations
+```
+
+## Conclusion
+
+In this assignment, I used the Global Baseline Estimate to predict missing movie ratings and make movie recommendations. I first calculated the overall average rating, each user's difference from the overall average, and each movie's difference from the overall average. I then used these values to calculate predicted ratings for movies that each user had not rated.
+
+For each user, I selected the movie with the highest predicted rating as the recommendation. For example, the model recommended CaptainAmerica to Dan with a predicted rating of about 5.34.
+
+Overall, the Global Baseline Estimate provides a simple way to predict missing ratings and recommend movies based on both the user's rating behavior and the general ratings of each movie.
+
+## References
+
+Google Deep Mind. (2026). Gemini 3 Flash \[Large language model\]. \[<https://gemini.google.com.%5D(https://gemini.google.com/)> Accessed September 20th, 2026.
+
+Wickham, H., Çetinkaya-Rundel, M., & Grolemund, G. (2023). ***R for data science*** (2nd ed.). O'Reilly Media. <https://r4ds.hadley.nz/>
